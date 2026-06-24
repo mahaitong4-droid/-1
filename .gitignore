@@ -1,0 +1,28 @@
+# 环境与密钥（绝不提交）
+.env
+.env.local
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# 数据/缓存
+data/cache/
+data/exports/
+*.sqlite
+*.db
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+*.swp
