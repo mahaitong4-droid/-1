@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>地推商圈分析</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>地推商圈分析<span class="subtitle">独立餐饮 · 用工需求热度</span></h1>
+    <div class="legend">
+      <span class="dot dot-high"></span><span>高匹配 ≥50%</span>
+      <span class="dot dot-mid"></span><span>中 25-50%</span>
+      <span class="dot dot-low"></span><span>低 &lt;25%</span>
+    </div>
+  </header>
+
+  <main>
+    <aside class="panel">
+      <section class="controls">
+        <label>城市
+          <input type="text" id="city" value="长沙" />
+        </label>
+        <label>区域（可选）
+          <input type="text" id="region" placeholder="如 雨花区" />
+        </label>
+        <label>抓取深度
+          <select id="maxPages">
+            <option value="4">快(4页·约100家)</option>
+            <option value="10" selected>标准(10页·约250家)</option>
+            <option value="20">深(20页·约500家)</option>
+            <option value="40">极限(40页·1000家)</option>
+          </select>
+        </label>
+        <button id="runBtn" type="button">开始分析</button>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="summary" id="summary" hidden>
+        <h3>统计概览</h3>
+        <ul>
+          <li>POI总数：<strong id="sum-total">-</strong></li>
+          <li>独立餐饮：<strong id="sum-qualified">-</strong></li>
+          <li>有用工需求：<strong id="sum-high">-</strong> (<span id="sum-ratio">-</span>)</li>
+        </ul>
+        <div class="exclude-row">
+          排除：
+          <span>奶茶 <em id="ex-tea">0</em></span>
+          <span>卤味 <em id="ex-braised">0</em></span>
+          <span>连锁 <em id="ex-chain">0</em></span>
+        </div>
+      </section>
+
+      <section class="areas" id="areas-panel" hidden>
+        <h3>商圈排行（按需求店数）</h3>
+        <ul id="area-list" class="area-list"></ul>
+      </section>
+    </aside>
+
+    <div id="map"></div>
+  </main>
+
+  <!-- 商圈详情弹窗 -->
+  <div id="detailModal" class="modal" hidden>
+    <div class="modal-body">
+      <button class="close-btn" id="modalClose">×</button>
+      <h2 id="d-title"></h2>
+      <p class="ad" id="d-ad"></p>
+      <div class="stats-grid">
+        <div><label>独立餐饮总数</label><b id="d-total"></b></div>
+        <div><label>有用工需求</label><b id="d-high"></b></div>
+        <div><label>需求占比</label><b id="d-ratio"></b></div>
+        <div><label>平均用工分</label><b id="d-avg"></b></div>
+      </div>
+      <h3>Top候选商户</h3>
+      <table class="top-table">
+        <thead><tr><th>商户</th><th>地址</th><th>用工分</th><th>验证</th></tr></thead>
+        <tbody id="d-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
