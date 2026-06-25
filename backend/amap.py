@@ -77,13 +77,24 @@ class AmapClient:
         region_kw = f"{city}{region}" if region else city
         page = 1
         while page <= max_pages:
-            data = await self._call_poi(
-                keywords=region_kw,
-                types=RESTAURANT_TYPES,
-                region=city,
-                page=page,
-                page_size=page_size,
-            )
+            try:
+                data = await self._call_poi(
+                    keywords=region_kw,
+                    types=RESTAURANT_TYPES,
+                    region=city,
+                    page=page,
+                    page_size=page_size,
+                )
+            except AmapError as e:
+                # 高德POI文本搜索硬上限1000条，跑到边缘会返回ENGINE_RESPONSE_DATA_ERROR
+                # 已经拿到一些结果就用已有的，没拿到就把错误向上抛
+                if results:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "高德在第%d页报错(已拿到%d家)，停止翻页: %s", page, len(results), e
+                    )
+                    break
+                raise
             pois = data.get("pois") or []
             if not pois:
                 break
