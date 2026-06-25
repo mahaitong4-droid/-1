@@ -23,12 +23,19 @@
   window._AMapSecurityConfig = { securityJsCode: cfg.amap_security_code || "" };
   await loadAmap(cfg.amap_js_key);
 
-  // 3. 初始化地图（默认长沙中心）
+  // 3. 初始化地图（默认长沙中心，使用标准样式以显示街道/商户名）
   const map = new AMap.Map("map", {
-    zoom: 11,
+    zoom: 12,
     center: [112.939, 28.228], // 长沙
-    mapStyle: "amap://styles/whitesmoke",
     viewMode: "2D",
+    dragEnable: true,
+    zoomEnable: true,
+    scrollWheel: true,
+    doubleClickZoom: true,
+    keyboardEnable: true,
+    jogEnable: true,
+    showLabel: true,
+    features: ["bg", "point", "road", "building"],
   });
   // 让地图大小变化时自适应
   window.addEventListener("resize", () => map.resize());
@@ -153,11 +160,11 @@
       // 中心点label
       const marker = new AMap.Marker({
         position: a.center,
-        content: `<div class="ms-label" style="background:${color};color:#fff;padding:2px 6px;border-radius:10px;font-size:11px;white-space:nowrap;font-weight:600">${escapeHtml(a.name)} ${a.high_demand}/${a.total_qualified}</div>`,
+        content: `<div class="ms-label" style="background:${color};color:#fff;padding:2px 6px;border-radius:10px;font-size:11px;white-space:nowrap;font-weight:600;pointer-events:none">${escapeHtml(a.name)} ${a.high_demand}/${a.total_qualified}</div>`,
         anchor: "center",
         offset: new AMap.Pixel(0, 0),
+        clickable: false,
       });
-      marker.on("click", () => showDetail(a));
       map.add(marker);
       markerLayer.push(marker);
 

@@ -78,7 +78,7 @@ class BusinessAreaStats:
 
 def _heat_level(ratio: float, total: int) -> str:
     """色块热度：商户数太少不算高，避免1家店100%误导。"""
-    if total < 5:
+    if total < 3:
         return "low"
     if ratio >= 0.5:
         return "high"
