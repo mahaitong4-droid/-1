@@ -1,32 +1,39 @@
 /*
- * sw-shim.js —— MV2 background page -> MV3 service worker 兼容层
+ * sw-shim.js - MV2 background page -> MV3 service worker compatibility layer
  *
- * 用法：manifest.json 里写
+ * Usage: in manifest.json set
  *     "background": { "service_worker": "sw-shim.js" }
- * 然后把原来 MV2 的 background.scripts 数组原样填进下面的 BACKGROUND_SCRIPTS。
+ * and list the original MV2 background.scripts entries below, in the same order.
  *
- * 为什么用 importScripts 而不是 ES module import：
- *   MV2 的 background 多个脚本之间靠【全局变量】互相引用。
- *   改成 module 后顶层 var/function 会变成模块作用域，跨文件引用会全部变成 undefined，
- *   表现就是"扩展加载正常但什么都不工作"。importScripts 保留经典全局作用域，行为和 MV2 一致。
- *   代价是不能用顶层 await（见下面 localStorage 的说明）。
+ * ASCII-only on purpose. These files get moved around by hand, through web fetches and
+ * chat clients, and every hop is a chance for a re-encode. Staying in ASCII removes that
+ * whole class of failure.
+ *
+ * Why importScripts instead of ES module imports:
+ *   MV2 background scripts reference each other through GLOBAL variables. As ES modules,
+ *   top-level var/function become module-scoped, so every cross-file reference silently
+ *   becomes undefined - the extension loads but nothing works. importScripts keeps the
+ *   classic global scope that MV2 code expects. The cost is no top-level await, which is
+ *   why the localStorage emulation below is hydrated asynchronously.
  */
 
-// 原 MV2 manifest 里 background.scripts 的内容，顺序必须保持一致
+// The original MV2 background.scripts list, in the original order.
 const BACKGROUND_SCRIPTS = ['background.js'];
 
-// ---------------------------------------------------------------- window 别名
-// MV2 background page 里的 window 就是全局对象；service worker 里没有 window。
+// ---------------------------------------------------------------- window alias
+// In an MV2 background page, window IS the global object. A service worker has no window.
 self.window = self;
 if (typeof globalThis !== 'undefined' && !globalThis.window) globalThis.window = globalThis;
 
 // ---------------------------------------------------------------- localStorage
-// service worker 里没有 localStorage。这里用内存缓存 + chrome.storage.local 回写模拟同步语义。
+// Service workers have no localStorage. This emulates the synchronous API over an
+// in-memory cache that is written through to chrome.storage.local.
 //
-// 已知限制：service worker 每次冷启动时，缓存是【异步】从 chrome.storage.local 灌进来的。
-// 如果被引入的脚本在顶层就同步读 localStorage，第一次会读到空值，之后才正确。
-// IDM 的 native host 名是代码里的硬编码常量，不走 localStorage，所以不影响连接本身。
-// 如果你的脚本确实在顶层依赖 localStorage，用 self.__shimReady.then(...) 包一层。
+// Known limitation: the cache is hydrated ASYNCHRONOUSLY on every cold start of the
+// service worker. A script that reads localStorage at top level will see empty values on
+// the first tick and correct ones afterwards. IDM's native host name is a hardcoded
+// constant rather than a stored setting, so this does not affect the connection itself.
+// If your own code needs the values at top level, wrap it in self.__shimReady.then(...).
 (function installLocalStorage() {
   const STORE_KEY = '__mv2_localStorage__';
   let cache = Object.create(null);
@@ -36,7 +43,7 @@ if (typeof globalThis !== 'undefined' && !globalThis.window) globalThis.window =
     if (flushTimer) return;
     flushTimer = setTimeout(() => {
       flushTimer = null;
-      try { chrome.storage.local.set({ [STORE_KEY]: cache }); } catch (e) { /* 忽略 */ }
+      try { chrome.storage.local.set({ [STORE_KEY]: cache }); } catch (e) { /* ignore */ }
     }, 0);
   }
 
@@ -57,7 +64,7 @@ if (typeof globalThis !== 'undefined' && !globalThis.window) globalThis.window =
       chrome.storage.local.get(STORE_KEY, (got) => {
         const saved = got && got[STORE_KEY];
         if (saved) for (const k of Object.keys(saved)) {
-          // 已经被脚本写过的键不覆盖，避免把新值冲掉
+          // Do not clobber keys the script has already written since startup.
           if (!Object.prototype.hasOwnProperty.call(cache, k)) cache[k] = saved[k];
         }
         resolve();
@@ -67,7 +74,7 @@ if (typeof globalThis !== 'undefined' && !globalThis.window) globalThis.window =
 })();
 
 // ---------------------------------------------------------------- XMLHttpRequest
-// service worker 里没有 XHR，只有 fetch。这里提供一个够用的最小实现。
+// Service workers have fetch but no XHR. This is a minimal but usable stand-in.
 if (typeof XMLHttpRequest === 'undefined') {
   self.XMLHttpRequest = class XMLHttpRequestShim {
     constructor() {
@@ -135,7 +142,7 @@ if (typeof XMLHttpRequest === 'undefined') {
         this._emit('load');
       }).catch((err) => {
         if (this._aborted) return;
-        console.error('[idm-shim] XHR 失败:', this._url, err);
+        console.error('[idm-shim] XHR failed:', this._url, err);
         this.status = 0;
         this._setState(4);
         this._emit('error');
@@ -145,12 +152,12 @@ if (typeof XMLHttpRequest === 'undefined') {
   function safeJson(t) { try { return JSON.parse(t); } catch (e) { return null; } }
 }
 
-// ---------------------------------------------------------------- native messaging 日志包装
-// 这是排查 "Cannot launch IDM" 最有用的一段：
-// 把 Chrome 的原始错误字符串打出来，而不是只看扩展自己的提示。
+// ---------------------------------------------------------------- native messaging logging
+// The single most useful thing when debugging "Cannot launch IDM": surface Chrome's own
+// error string instead of only the extension's generic message.
 (function wrapNativeMessaging() {
   if (!chrome.runtime || !chrome.runtime.connectNative) {
-    console.error('[idm-shim] chrome.runtime.connectNative 不存在 —— manifest 缺 "nativeMessaging" 权限');
+    console.error('[idm-shim] chrome.runtime.connectNative is missing - the manifest has no "nativeMessaging" permission');
     return;
   }
   try {
@@ -160,7 +167,7 @@ if (typeof XMLHttpRequest === 'undefined') {
       const port = rawConnect(name);
       port.onDisconnect.addListener(() => {
         const err = chrome.runtime.lastError && chrome.runtime.lastError.message;
-        console.error('[idm-shim] native port 断开:', name, '| Chrome 报错:', err || '(无)');
+        console.error('[idm-shim] native port disconnected:', name, '| Chrome says:', err || '(no error)');
       });
       return port;
     };
@@ -169,43 +176,47 @@ if (typeof XMLHttpRequest === 'undefined') {
     chrome.runtime.sendNativeMessage = function (name, msg, cb) {
       return rawSend(name, msg, function (resp) {
         const err = chrome.runtime.lastError && chrome.runtime.lastError.message;
-        if (err) console.error('[idm-shim] sendNativeMessage 失败:', name, '|', err);
+        if (err) console.error('[idm-shim] sendNativeMessage failed:', name, '|', err);
         if (typeof cb === 'function') cb(resp);
       });
     };
   } catch (e) {
-    console.warn('[idm-shim] 包装 native messaging 失败（不影响功能）:', e);
+    console.warn('[idm-shim] could not wrap native messaging (harmless):', e);
   }
 })();
 
-// 手工探针：在 Service Worker 控制台执行 idmProbe() 即可看到 Chrome 的原始错误
+// Manual probe: run idmProbe() in the Service Worker console to see Chrome's raw error.
+// Called with no argument it tries both known IDM host names.
 self.idmProbe = function (hostName) {
-  const name = hostName || 'com.internetdownloadmanager.pdmbehavior';
-  chrome.runtime.sendNativeMessage(name, {}, (resp) => {
-    const err = chrome.runtime.lastError && chrome.runtime.lastError.message;
-    console.log('[idmProbe] host =', name, '| 响应 =', resp, '| 错误 =', err || '(无)');
-  });
+  const names = hostName ? [hostName] : ['com.internetdownloadmanager.pdmbehavior', 'com.tonec.idm'];
+  for (const name of names) {
+    chrome.runtime.sendNativeMessage(name, {}, (resp) => {
+      const err = chrome.runtime.lastError && chrome.runtime.lastError.message;
+      console.log('[idmProbe]', name, '| response:', resp, '| error:', err || '(none)');
+    });
+  }
 };
 
-// ---------------------------------------------------------------- 保活
-// MV3 service worker 空闲 30 秒就会被回收，连着的 native port 也跟着断。
-// alarm 每 30 秒触发一次事件，把空闲计时器重置掉。
-// 需要 manifest.permissions 里有 "alarms"。周期最小值是 0.5 分钟。
+// ---------------------------------------------------------------- keepalive
+// An MV3 service worker is reclaimed after about 30 seconds idle, taking any open native
+// port with it. An alarm firing every 30 seconds resets that idle timer.
+// Requires "alarms" in manifest.permissions. 0.5 minutes is the minimum period.
 if (chrome.alarms) {
   chrome.alarms.create('idm-sw-keepalive', { periodInMinutes: 0.5 });
   chrome.alarms.onAlarm.addListener((a) => {
-    if (a.name === 'idm-sw-keepalive') { /* 空处理即可，触发本身就会重置空闲计时 */ }
+    if (a.name === 'idm-sw-keepalive') { /* empty on purpose: the event itself resets the timer */ }
   });
 } else {
-  console.warn('[idm-shim] 没有 alarms 权限，service worker 会在 30 秒空闲后被回收，native 连接随之断开');
+  console.warn('[idm-shim] no alarms permission; the service worker will be reclaimed after 30s idle and the native connection will drop');
 }
 
-// ---------------------------------------------------------------- 载入原 background 脚本
-// 必须放在最后：上面的 window / localStorage / XHR 都要先就位。
-// importScripts 只能在 service worker 首次求值期间调用，所以不能包在异步回调里。
+// ---------------------------------------------------------------- load the original scripts
+// Must come last: window, localStorage and XHR all have to be in place first.
+// importScripts is only callable during the service worker's initial evaluation, so this
+// cannot be deferred into an async callback.
 try {
   importScripts(...BACKGROUND_SCRIPTS);
-  console.log('[idm-shim] 已载入:', BACKGROUND_SCRIPTS.join(', '));
+  console.log('[idm-shim] loaded:', BACKGROUND_SCRIPTS.join(', '));
 } catch (e) {
-  console.error('[idm-shim] 载入 background 脚本失败:', e);
+  console.error('[idm-shim] failed to load background scripts:', e);
 }
