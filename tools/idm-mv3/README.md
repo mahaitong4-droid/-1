@@ -163,11 +163,45 @@ for (const n of ['com.internetdownloadmanager.pdmbehavior','com.tonec.idm'])
 
 ### 其余脚本（可选）
 
-| 脚本 | 用途 |
-|---|---|
-| `Diagnose-IdmNativeMessaging.ps1` | 独立复查，按链路逐环打印 OK/FAIL |
-| `Get-CrxKey.ps1` | 只做"提取公钥 / 固定扩展 ID"这一件事 |
-| `Convert-ManifestToMv3.ps1` + `mv3/sw-shim.js` | 重做 MV2→MV3 转换 |
+| 脚本 | 用途 | 平台 |
+|---|---|---|
+| `Diagnose-IdmNativeMessaging.ps1` | 独立复查，按链路逐环打印 OK/FAIL | Windows |
+| `Get-CrxKey.ps1` | 只做"提取公钥 / 固定扩展 ID"这一件事 | 跨平台 |
+| `Convert-ManifestToMv3.ps1` + `mv3/sw-shim.js` | 重做 MV2→MV3 转换 | 跨平台 |
+| `Remove-IdmPortable.ps1` | 卸载便携版 IDM 及其残留 | Windows |
+| `Test-NativeMessaging.ps1` | 列出并校验所有已注册的 native messaging host | Windows |
+
+---
+
+## 六之二、换用其它下载器（FDM 等）
+
+便携版 IDM 之所以难搞，是因为它刻意不写注册表 —— 而 Windows 上 Chrome 只认注册表。
+换成任何带正规安装程序的下载器（FDM、Motrix、XDM…），这一整类问题都不存在：
+安装程序会自己把 native messaging 注册好。
+
+**第一步：清掉便携版 IDM。** 默认是 dry run，不加 `-Execute` 什么都不改：
+
+```powershell
+.\Remove-IdmPortable.ps1 -IdmDir 'E:\path\to\IDM portable'
+# 看清楚 [ACT] 标记的条目，确认无误后：
+.\Remove-IdmPortable.ps1 -IdmDir 'E:\path\to\IDM portable' -Execute
+```
+
+删之前会先把相关注册表项导出到桌面 `idm-backup`。
+hosts 文件和防火墙规则**只报告不修改** —— 它们需要管理员权限，且改错影响面大，
+脚本会打印发现的内容和对应的修复命令，由你手工处理。
+这两项只有在你之后要装官方版 IDM 时才必须清。
+
+**第二步：装新下载器，然后验证。**
+
+```powershell
+.\Test-NativeMessaging.ps1
+```
+
+这个脚本与厂商无关：它枚举 Chrome / Edge / Chromium 下**实际注册**的所有 host，
+逐个检查 JSON 是否存在、编码有无 BOM、`name` 与注册表键名是否一致、
+`type` 是否为 stdio、`path` 指向的 exe 是否存在、`allowed_origins` 结尾斜杠是否齐全。
+装完 FDM 跑一次，应当能看到它的 host 且全绿。
 
 > `Repair-IdmNativeMessaging.ps1` 已删除 —— `Setup-IdmIntegration.ps1` 是它的严格超集。
 > 如果你们本地还留着旧的那一份，删掉，别再跑它（它也带中文、同样跑不起来）。
@@ -239,16 +273,17 @@ IDM 启动时会重写它自己那份 JSON，把 `allowed_origins` 刷回官方 
 ### 测试覆盖情况
 
 脚本现在有一套回归测试：`tests/run-tests.sh`（需要 PowerShell 7，Linux/macOS 可跑）。
-最近一次运行 **30/30 通过**（pwsh 7.6.5）：
+最近一次运行 **38/38 通过**（pwsh 7.6.5）：
 
 | 已验证 | 方式 |
 |---|---|
-| 4 个 `.ps1` 全部语法解析通过 | PowerShell 官方解析器 `Parser::ParseFile`，不是静态猜测 |
-| 4 个 `.ps1` 均为纯 ASCII + UTF-8 BOM | 逐字节校验，防的就是第〇节那个坑 |
+| 6 个 `.ps1` 全部语法解析通过 | PowerShell 官方解析器 `Parser::ParseFile`，不是静态猜测 |
+| 6 个 `.ps1` 均为纯 ASCII + UTF-8 BOM | 逐字节校验，防的就是第〇节那个坑 |
 | CRX2/CRX3 公钥提取与扩展 ID 推导 | 真脚本跑合成 CRX，结果与独立 Python 实现逐字符一致 |
 | `-PatchManifest` 写入 | key 正确、JSON 合法、无 BOM、其余字段未损坏、ID 可回推 |
 | MV2→MV3 转换 | 17 项断言，含**「`nativeMessaging` 留在 `permissions`」**这条核心主张 |
-| 非 Windows 平台快速失败 | 两个 Windows 专用脚本给出明确提示而非一堆红字 |
+| 非 Windows 平台快速失败 | 4 个 Windows 专用脚本给出明确提示而非一堆红字 |
+| 跨平台脚本保持无守卫 | `Get-CrxKey` / `Convert-ManifestToMv3` 确保在任何机器上都可被测试 |
 
 **仍然无法验证**（必须真 Windows 机器）：注册表读写、8.3 短路径（依赖 COM）、
 Windows 进程名检查、以及 Chrome 是否真的能拉起 native host。

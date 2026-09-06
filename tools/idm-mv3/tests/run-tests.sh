@@ -144,12 +144,23 @@ if [ $? -eq 0 ]; then PASS=$((PASS+17)); else FAIL=$((FAIL+1)); fi
 
 # ---------------------------------------------------------------- 5. platform guard
 echo; echo "== 5. Windows-only scripts refuse to run off-Windows =="
-for s in Diagnose-IdmNativeMessaging Setup-IdmIntegration; do
-  args=(-ExtensionDir "$WORK/ext")
-  [ "$s" = "Setup-IdmIntegration" ] && args+=(-IdmDir "$WORK/idm" -WhatIfOnly)
+for s in Diagnose-IdmNativeMessaging Setup-IdmIntegration Remove-IdmPortable Test-NativeMessaging; do
+  case "$s" in
+    Diagnose-IdmNativeMessaging) args=(-ExtensionDir "$WORK/ext") ;;
+    Setup-IdmIntegration)        args=(-ExtensionDir "$WORK/ext" -IdmDir "$WORK/idm" -WhatIfOnly) ;;
+    *)                           args=() ;;
+  esac
   out="$(pwsh -NoProfile -File "$ROOT/$s.ps1" "${args[@]}" 2>&1)"
   if echo "$out" | grep -q 'only runs on Windows'; then ok "$s.ps1 fails fast with a clear message"
   else bad "$s.ps1 did not emit the platform guard message"; fi
+done
+
+echo; echo "== 6. cross-platform scripts stay runnable off-Windows =="
+for s in Get-CrxKey Convert-ManifestToMv3; do
+  out="$(pwsh -NoProfile -File "$ROOT/$s.ps1" -? 2>&1 || true)"
+  if echo "$out" | grep -q 'only runs on Windows'; then
+    bad "$s.ps1 must NOT carry the Windows guard (it is cross-platform and must stay testable)"
+  else ok "$s.ps1 has no Windows guard"; fi
 done
 
 echo; echo "=============================="
