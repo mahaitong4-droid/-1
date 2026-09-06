@@ -236,10 +236,23 @@ IDM 启动时会重写它自己那份 JSON，把 `allowed_origins` 刷回官方 
 - MV3 的 `webRequest` 只能观察不能拦截改写，`webRequestBlocking` 会被转换脚本移除。
 - service worker 空闲 30 秒被回收，`sw-shim.js` 用 30 秒 alarm 保活，
   但这不是官方保证的机制，长时间空闲后首次下载仍可能有一次重连延迟。
-- 所有 PowerShell 脚本**未在真机运行过**（开发环境是 Linux 容器，没有 PowerShell）。
-  已做的验证：纯 ASCII 校验、大括号/引号配对静态检查、
-  CRX 解析与扩展 ID 推导用等价 Python 实现交叉验证（7 项断言通过）、
-  `sw-shim.js` 通过 `node --check`。首次执行请先带 `-WhatIfOnly`。
+### 测试覆盖情况
+
+脚本现在有一套回归测试：`tests/run-tests.sh`（需要 PowerShell 7，Linux/macOS 可跑）。
+最近一次运行 **30/30 通过**（pwsh 7.6.5）：
+
+| 已验证 | 方式 |
+|---|---|
+| 4 个 `.ps1` 全部语法解析通过 | PowerShell 官方解析器 `Parser::ParseFile`，不是静态猜测 |
+| 4 个 `.ps1` 均为纯 ASCII + UTF-8 BOM | 逐字节校验，防的就是第〇节那个坑 |
+| CRX2/CRX3 公钥提取与扩展 ID 推导 | 真脚本跑合成 CRX，结果与独立 Python 实现逐字符一致 |
+| `-PatchManifest` 写入 | key 正确、JSON 合法、无 BOM、其余字段未损坏、ID 可回推 |
+| MV2→MV3 转换 | 17 项断言，含**「`nativeMessaging` 留在 `permissions`」**这条核心主张 |
+| 非 Windows 平台快速失败 | 两个 Windows 专用脚本给出明确提示而非一堆红字 |
+
+**仍然无法验证**（必须真 Windows 机器）：注册表读写、8.3 短路径（依赖 COM）、
+Windows 进程名检查、以及 Chrome 是否真的能拉起 native host。
+首次在目标机器执行仍建议先带 `-WhatIfOnly`。
 
 ---
 

@@ -44,11 +44,23 @@ param(
     [string]$CrxPath,
     [string[]]$HostNames,
     [string[]]$ExtraExtensionIds = @(),
-    [string]$OutputDir = (Join-Path $env:LOCALAPPDATA 'IDMNativeHost'),
+    [string]$OutputDir,
     [switch]$WhatIfOnly
 )
 
 $ErrorActionPreference = 'Stop'
+
+# This script targets Windows: it reads and writes the Windows registry, which is where
+# Chrome looks for native messaging hosts. Fail fast with a clear message elsewhere,
+# instead of emitting a wall of "drive HKCU does not exist" errors.
+# ($PSVersionTable.Platform does not exist on Windows PowerShell 5.1, so this is a no-op there.)
+if ($PSVersionTable.Platform -and $PSVersionTable.Platform -ne 'Win32NT') {
+    throw "This script only runs on Windows (it needs the Windows registry). Detected platform: $($PSVersionTable.Platform)"
+}
+
+# LOCALAPPDATA only exists on Windows, so resolve the default after the guard above.
+if (-not $OutputDir) { $OutputDir = Join-Path $env:LOCALAPPDATA 'IDMNativeHost' }
+
 
 function Write-Step($t) { Write-Host ''; Write-Host ">> $t" -ForegroundColor Cyan }
 function Write-Ok($t) { Write-Host "   [OK]   $t" -ForegroundColor Green }
