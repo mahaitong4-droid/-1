@@ -4,6 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>地推商圈分析</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ef4444'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23fff'/%3E%3C/svg%3E" />
+  <!-- Leaflet 随仓库发布，不依赖任何 CDN：断网/CDN被墙也能正常出图 -->
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
+  <script src="/static/vendor/leaflet/leaflet.js"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
@@ -18,6 +22,13 @@
 
   <main>
     <aside class="panel">
+      <!-- 当前跑在什么组合上（数据源/打分引擎/底图），以及还缺什么 key -->
+      <div id="modeBar" class="mode-bar" hidden></div>
+      <div id="setupBox" class="setup-box" hidden>
+        <h4>还差几步就能开跑</h4>
+        <ul id="setupList"></ul>
+      </div>
+
       <section class="controls">
         <label>城市
           <input type="text" id="city" value="长沙" />
@@ -26,11 +37,11 @@
           <input type="text" id="region" placeholder="如 雨花区" />
         </label>
         <label>抓取深度
-          <select id="maxPages">
-            <option value="4">快(4页·约100家)</option>
-            <option value="10" selected>标准(10页·约250家)</option>
-            <option value="20">深(20页·约500家)</option>
-            <option value="40">极限(40页·1000家)</option>
+          <select id="budget">
+            <option value="12">快（约 200 家 · 十几秒）</option>
+            <option value="30" selected>标准（约 500 家 · 半分钟）</option>
+            <option value="60">深（约 1000 家 · 1 分钟）</option>
+            <option value="120">极限（约 2000 家 · 2 分钟）</option>
           </select>
         </label>
         <button id="runBtn" type="button">开始分析</button>

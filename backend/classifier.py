@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from .amap import Merchant
+from .poi import Merchant
 
 
 class Category(str, Enum):
@@ -60,7 +60,29 @@ class RuleClassifier:
     """基于词库的快速分类器。命中即返回，未命中标记为 UNKNOWN 留给AI。"""
 
     def __init__(self, brands_file: Path | str):
-        self._groups = _load_brand_groups(Path(brands_file))
+        self._path = Path(brands_file)
+        self._mtime: float | None = None
+        self._groups: dict[Category, list[str]] = {
+            Category.TEA: [], Category.BRAISED: [], Category.CHAIN: [],
+        }
+        self._load()
+
+    def _load(self) -> None:
+        self._groups = _load_brand_groups(self._path)
+        try:
+            self._mtime = self._path.stat().st_mtime
+        except OSError:
+            self._mtime = None
+
+    def reload_if_changed(self) -> None:
+        """词库文件改动后自动重载 —— README 承诺"新加的品牌立即生效"，
+        旧版本其实要重启服务才生效，这里补上。"""
+        try:
+            mtime = self._path.stat().st_mtime
+        except OSError:
+            return
+        if self._mtime is None or mtime > self._mtime:
+            self._load()
 
     def classify(self, m: Merchant) -> ClassifyResult:
         name = m.name or ""
