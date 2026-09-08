@@ -49,8 +49,12 @@
 
 ### 2. 配置环境变量
 
+**Windows 用户可以跳过这步和下一步** —— 直接双击 `run.bat`，它会问你要这两个 key 并自动写好 `.env`（见[第三节](#三启动)）。
+
+其他系统：
+
 ```bash
-cp .env.example .env       # Windows: copy .env.example .env
+cp .env.example .env
 ```
 编辑 `.env`，把两个 key 填进 `TENCENT_KEY` 和 `TIANDITU_KEY`。其他项保持默认即可。
 
@@ -67,6 +71,19 @@ pip install -r requirements.txt
 ---
 
 ## 三、启动
+
+### Windows：双击 `run.bat`
+
+一步到位，它会依次做完：
+
+1. 找 Python（优先用 `.venv`，没有就用系统的）
+2. 装依赖（对比 `requirements.txt` 有变化才装，平时秒过）
+3. 第一次运行时问你要两个 key，自动生成 `.env`（没有就回车跳过）
+4. 启动服务，几秒后自动打开浏览器
+
+想停就按 `Ctrl+C` 或直接关掉窗口。想更新代码另外双击 `update.bat`。
+
+### 其他系统 / 想自己控制
 
 ```bash
 python -m backend.main
@@ -155,12 +172,7 @@ python -m backend.main
 
 ## 七、从 v0.1 升级
 
-在项目目录双击 **`update.bat`**，然后：
-
-```bash
-pip install -r requirements.txt     # 依赖有升级，这步不能省
-python -m backend.main
-```
+在项目目录双击 **`update.bat`** 拉最新代码，然后双击 **`run.bat`** 启动 —— 依赖升级、生成 `.env`、开浏览器都由它包办，不用再手敲命令。
 
 `update.bat` 会自动：
 - 保留你的 `.env`（并备份成 `.env.bak`）
@@ -206,7 +218,8 @@ python -m backend.main
 │   ├── chain_brands.txt     # 连锁/奶茶/卤味品牌词库
 │   └── labor_keywords.txt   # 用工需求打分词库
 ├── requirements.txt
-├── update.bat               # Windows 一键更新
+├── run.bat                # Windows 一键启动（装依赖 + 配key + 起服务 + 开浏览器）
+├── update.bat               # Windows 一键更新代码
 ├── .env.example
 └── README.md
 ```
@@ -243,6 +256,12 @@ A: 把"抓取深度"调大。程序按 12 个菜系关键词分片查询再去�
 
 **Q: 用了 Ollama，很慢 / 报连接失败**
 A: 先确认 `ollama serve` 在跑、`ollama pull qwen3:8b` 已完成，端口是默认的 11434。8B 模型跑几百家店本来就慢，建议先用默认的 `LLM_PROVIDER=none`。
+
+**Q: 双击 run.bat 提示「没找到 Python」**
+A: 去 https://www.python.org/downloads/ 装一个（3.10 以上），安装时**务必勾上「Add Python to PATH」**，然后重新双击。
+
+**Q: run.bat 装依赖失败**
+A: 基本都是网络问题。在它弹出的窗口里换国内源重试：`pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple`
 
 **Q: 想跑其他城市怎么办？**
 A: 直接前端"城市"框输入城市名（如"成都"、"杭州"）即可，不需要改代码。连锁词库的覆盖度对所有一二线城市基本通用。

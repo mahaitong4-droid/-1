@@ -1,7 +1,11 @@
 # 环境与密钥（绝不提交）
 .env
-.env.local
+.env.*
+!.env.example
 *.key
+
+# run.bat 记录上次装依赖时的 requirements 副本
+.deps.lock
 
 # Python
 __pycache__/
