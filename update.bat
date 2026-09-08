@@ -76,12 +76,10 @@ echo ==========================================
 echo   更新完成 v%VERSION%   .env 已保留
 echo ==========================================
 echo.
-echo 这一版依赖有升级，务必先装依赖再启动：
+echo 接下来双击 run.bat 就行 --
+echo 它会自动装依赖、启动服务、打开浏览器。
 echo.
-echo     pip install -r requirements.txt
-echo     python -m backend.main
-echo.
-echo 然后浏览器打开 http://localhost:8000
-echo （如果还没配 key，网页左上角会告诉你去哪申请，都是免费的）
+echo （如果还没配 key，run.bat 会问你要，都是免费的；
+echo   直接回车跳过也能跑，网页上会告诉你去哪申请）
 echo.
 pause
