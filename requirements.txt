@@ -1,6 +1,11 @@
-fastapi==0.115.0
-uvicorn[standard]==0.32.0
-httpx==0.27.2
-python-dotenv==1.0.1
-pydantic==2.9.2
-openai==1.54.0
+# 2026-09 最新稳定版
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+httpx==0.28.1
+python-dotenv==1.2.3
+pydantic==2.13.5
+
+# 说明：不再依赖 openai SDK。
+# 我们只用到 OpenAI 兼容的 /chat/completions 一个端点，直接用 httpx 调即可，
+# 这样 DeepSeek / 智谱 / 硅基流动 / 本地 Ollama 走的是同一条代码路径。
+# （openai SDK 从 3.0 起默认改用 HTTPX2 且不再自动安装 httpx，会和这里的 httpx 打架）
